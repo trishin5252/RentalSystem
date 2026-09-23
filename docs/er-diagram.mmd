@@ -1,0 +1,28 @@
+erDiagram
+  clients ||--o{ rental_requests : "оформляет"
+  equipment ||--o{ rental_requests : "участвует"
+  clients {
+    int id PK
+    varchar full_name
+    varchar phone
+    varchar email UK
+    timestamp created_at
+  }
+  equipment {
+    int id PK
+    varchar name
+    varchar category
+    numeric price_per_day
+    boolean is_available
+    timestamp created_at
+  }
+  rental_requests {
+    int id PK
+    int client_id FK
+    int equipment_id FK
+    date start_date
+    date end_date
+    varchar status
+    numeric total_cost
+    timestamp created_at
+  }

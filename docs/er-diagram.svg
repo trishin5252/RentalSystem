@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="630" viewBox="0 0 1240 630">
+<rect width="1240" height="630" fill="#f3f6fa"/>
+<style>text{font-family:Arial,sans-serif;fill:#17283c}.title{font-size:28px;font-weight:700}.subtitle{font-size:16px;fill:#556779}.name{font-size:21px;fill:white;font-weight:700}.field{font-family:Consolas,monospace;font-size:16px}.note{font-size:15px;fill:#43556b}.card{fill:white;stroke:#c5d2df;stroke-width:2}</style>
+<text x="40" y="46" class="title">Система проката оборудования</text>
+<text x="40" y="76" class="subtitle">ER-диаграмма PostgreSQL · КР 1 · PK — первичный ключ, FK — внешний ключ, UQ — уникальность</text>
+<rect x="40" y="120" width="310" height="294" rx="10" class="card"/><path d="M50 120H340Q350 120 350 130V174H40V130Q40 120 50 120" fill="#176577"/>
+<text x="60" y="155" class="name">clients</text>
+<text x="60" y="207" class="field">PK  id : SERIAL</text><text x="60" y="245" class="field">full_name : VARCHAR(150)</text><text x="60" y="283" class="field">phone : VARCHAR(30)</text><text x="60" y="321" class="field">UQ  email : VARCHAR(150)</text><text x="60" y="359" class="field">created_at : TIMESTAMP</text>
+<rect x="455" y="120" width="330" height="408" rx="10" class="card"/><path d="M465 120H775Q785 120 785 130V174H455V130Q455 120 465 120" fill="#244c8b"/>
+<text x="475" y="155" class="name">rental_requests</text>
+<text x="475" y="207" class="field">PK  id : SERIAL</text><text x="475" y="245" class="field">FK  client_id : INTEGER</text><text x="475" y="283" class="field">FK  equipment_id : INTEGER</text><text x="475" y="321" class="field">start_date : DATE</text><text x="475" y="359" class="field">end_date : DATE</text><text x="475" y="397" class="field">status : VARCHAR(20)</text><text x="475" y="435" class="field">total_cost : NUMERIC(12,2)</text><text x="475" y="473" class="field">created_at : TIMESTAMP</text>
+<rect x="890" y="120" width="310" height="332" rx="10" class="card"/><path d="M900 120H1190Q1200 120 1200 130V174H890V130Q890 120 900 120" fill="#176577"/>
+<text x="910" y="155" class="name">equipment</text>
+<text x="910" y="207" class="field">PK  id : SERIAL</text><text x="910" y="245" class="field">name : VARCHAR(150)</text><text x="910" y="283" class="field">category : VARCHAR(80)</text><text x="910" y="321" class="field">price_per_day : NUMERIC</text><text x="910" y="359" class="field">is_available : BOOLEAN</text><text x="910" y="397" class="field">created_at : TIMESTAMP</text>
+<g fill="none" stroke="#244c8b" stroke-width="2"><path d="M350 235H455 M360 227V243 M443 235L455 224 M443 235L455 246"/><circle cx="432" cy="235" r="4" fill="#f3f6fa"/><path d="M785 273H890 M880 265V281 M797 273L785 262 M797 273L785 284"/><circle cx="808" cy="273" r="4" fill="#f3f6fa"/></g>
+<text x="365" y="215" class="note">1</text><text x="407" y="215" class="note">0..N</text><text x="797" y="253" class="note">0..N</text><text x="870" y="253" class="note">1</text>
+<text x="40" y="563" class="note">Все поля NOT NULL. Связи ON DELETE RESTRICT. CHECK: положительные суммы, конец позже начала, допустимый статус.</text>
+<text x="40" y="592" class="note">Частичный UNIQUE(equipment_id): не более одной заявки CREATED / ACTIVE / OVERDUE на предмет оборудования.</text>
+</svg>
