@@ -6,10 +6,8 @@ import java.util.List;
 public class EquipmentRepository extends JdbcRepository<Equipment> implements Repository<Equipment,Integer> {
     public EquipmentRepository() { }
     public EquipmentRepository(Connection c) { super(c); }
-    public Equipment findById(Integer id) throws EntityNotFoundException { return find(id,false); }
-    public Equipment findForUpdate(int id) throws EntityNotFoundException { return find(id,true); }
-    private Equipment find(int id,boolean lock) throws EntityNotFoundException {
-        List<Equipment> rows = query("SELECT * FROM equipment WHERE id=?" + (lock ? " FOR UPDATE" : ""),id);
+    public Equipment findById(Integer id) throws EntityNotFoundException {
+        List<Equipment> rows = query("SELECT * FROM equipment WHERE id=?",id);
         if (rows.isEmpty()) throw new EntityNotFoundException("Оборудование с ID " + id + " не найдено");
         return rows.get(0);
     }

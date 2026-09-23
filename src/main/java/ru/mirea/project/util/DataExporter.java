@@ -3,7 +3,6 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 
@@ -13,25 +12,6 @@ public final class DataExporter {
         Path path = Path.of(name).toAbsolutePath();
         if (path.getParent() != null) Files.createDirectories(path.getParent());
         return path;
-    }
-    public static void exportToCSV(String name,List<String[]> data,String[] headers) throws IOException {
-        Path path = output(name);
-        try (BufferedWriter writer = Files.newBufferedWriter(path,StandardCharsets.UTF_8)) {
-            writer.write('\uFEFF'); // Excel определяет UTF-8 по BOM.
-            writeRow(writer,headers);
-            for (String[] row : data) writeRow(writer,row);
-        }
-        System.out.println("Данные экспортированы: " + path);
-    }
-    private static void writeRow(Writer writer,String[] row) throws IOException {
-        for (int i = 0; i < row.length; i++) {
-            if (i > 0) writer.write(';');
-            String text = Objects.toString(row[i],"");
-            // CSV открывается в Excel: текст не должен интерпретироваться как формула.
-            if (text.matches("(?s)^[\\s]*[=+@-].*")) text = "'" + text;
-            writer.write("\"" + text.replace("\"","\"\"") + "\"");
-        }
-        writer.write("\r\n");
     }
     public static void exportToExcel(String name,List<String[]> data,String[] headers) throws IOException {
         Path path = output(name);

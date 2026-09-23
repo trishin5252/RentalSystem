@@ -1,7 +1,6 @@
 package ru.mirea.project.view;
 
 import ru.mirea.project.exception.BusinessException;
-import ru.mirea.project.exception.EntityNotFoundException;
 import ru.mirea.project.model.*;
 import ru.mirea.project.service.ClientService;
 import ru.mirea.project.service.EquipmentService;
@@ -13,6 +12,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Scanner;
 
@@ -23,6 +23,9 @@ public class Menu {
     private final EquipmentService equipmentService = new EquipmentService();
     private final RentalRequestService rentalService = new RentalRequestService();
     private final DateTimeFormatter dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final List<String> DEFAULT_CATEGORIES = List.of(
+            "Электроинструмент", "Строительное", "Сварочное", "Измерительное"
+    );
 
     public void start() {
         try { runMenus(); }
@@ -34,10 +37,62 @@ public class Menu {
         if (!scanner.hasNextLine()) throw new InputEndedException();
         return scanner.nextLine();
     }
-    private boolean readBoolean(String text) {
-        if (text.equalsIgnoreCase("да")) return true;
-        if (text.equalsIgnoreCase("нет")) return false;
-        throw new IllegalArgumentException("Введите да или нет");
+    private int chooseListNumber(int size, String prompt) {
+        if (size == 0) throw new IllegalArgumentException("Список пуст");
+        System.out.print(prompt + " (0 — отмена): ");
+        int number = Integer.parseInt(readLine().trim());
+        if (number == 0) return -1;
+        if (number < 1 || number > size) throw new IllegalArgumentException("Выберите номер от 1 до " + size);
+        return number - 1;
+    }
+    private Client selectClient() {
+        List<Client> clients = clientService.getAllClients();
+        if (clients.isEmpty()) throw new IllegalArgumentException("Сначала создайте хотя бы одного клиента");
+        System.out.println("\nДоступные клиенты:");
+        for (int i = 0; i < clients.size(); i++) System.out.println((i + 1) + ". " + clients.get(i));
+        int index = chooseListNumber(clients.size(), "Выберите клиента");
+        return index < 0 ? null : clients.get(index);
+    }
+    private Equipment selectEquipment(List<Equipment> equipment, String title) {
+        if (equipment.isEmpty()) throw new IllegalArgumentException("Нет доступного оборудования");
+        System.out.println("\n" + title + ":");
+        for (int i = 0; i < equipment.size(); i++) System.out.println((i + 1) + ". " + equipment.get(i));
+        int index = chooseListNumber(equipment.size(), "Выберите оборудование");
+        return index < 0 ? null : equipment.get(index);
+    }
+    private Equipment selectEquipment() {
+        return selectEquipment(equipmentService.getAllEquipment(), "Оборудование");
+    }
+    private RentalRequest selectRental() {
+        List<RentalRequest> rentals = rentalService.getAllRentals();
+        if (rentals.isEmpty()) throw new IllegalArgumentException("Список заявок пуст");
+        System.out.println("\nЗаявки на аренду:");
+        for (int i = 0; i < rentals.size(); i++) System.out.println((i + 1) + ". " + rentals.get(i));
+        int index = chooseListNumber(rentals.size(), "Выберите заявку");
+        return index < 0 ? null : rentals.get(index);
+    }
+    private String selectCategory() {
+        LinkedHashSet<String> allCategories = new LinkedHashSet<>(DEFAULT_CATEGORIES);
+        allCategories.addAll(equipmentService.getCategories());
+        List<String> categories = new ArrayList<>(allCategories);
+        System.out.println("\nКатегории оборудования:");
+        for (int i = 0; i < categories.size(); i++) System.out.println((i + 1) + ". " + categories.get(i));
+        int index = chooseListNumber(categories.size(), "Выберите категорию");
+        return index < 0 ? null : categories.get(index);
+    }
+    private Boolean selectAvailability() {
+        System.out.println("\nСтатус оборудования:");
+        System.out.println("1. Доступно");
+        System.out.println("2. Занято / временно недоступно");
+        int index = chooseListNumber(2, "Выберите статус");
+        return index < 0 ? null : index == 0;
+    }
+    private boolean confirmAction(String action) {
+        System.out.println("\nПодтверждение: " + action);
+        System.out.println("1. Да");
+        System.out.println("2. Нет");
+        int index = chooseListNumber(2, "Выберите вариант");
+        return index == 0;
     }
     private RentalStatus statusByNumber(int number) {
         if (number < 0 || number >= RentalStatus.values().length)
@@ -101,9 +156,7 @@ public class Menu {
             System.out.println("\n--- МЕНЮ: КЛИЕНТЫ ---");
             System.out.println("1. Создать клиента");
             System.out.println("2. Вывести всех клиентов");
-            System.out.println("3. Получить клиента по ID");
-            System.out.println("4. Изменить клиента");
-            System.out.println("5. Удалить клиента");
+            System.out.println("3. Поиск клиента");
             System.out.println("0. Назад");
             System.out.print("Выберите действие: ");
 
@@ -112,9 +165,7 @@ public class Menu {
                 switch (choice) {
                     case "1" -> createClient();
                     case "2" -> showAllClients();
-                    case "3" -> getClientById();
-                    case "4" -> updateClient();
-                    case "5" -> deleteClient();
+                    case "3" -> searchClients();
                     case "0" -> back = true;
                     default -> System.out.println("Неверный выбор!");
                 }
@@ -154,74 +205,11 @@ public class Menu {
         System.out.println("Всего клиентов: " + clients.size());
     }
 
-    private void getClientById() {
-        System.out.print("Введите ID клиента: ");
-        String input = readLine().trim();
-        try {
-            int id = Integer.parseInt(input);
-            Client c = clientService.getClientById(id);
-            System.out.println("\nНайденный клиент:");
-            System.out.println("ID: " + c.getId());
-            System.out.println("ФИО: " + c.getFullName());
-            System.out.println("Телефон: " + c.getPhone());
-            System.out.println("Email: " + c.getEmail());
-        } catch (NumberFormatException e) {
-            System.err.println("Ошибка: ID должен быть целым числом.");
-        } catch (EntityNotFoundException e) {
-            System.err.println(e.getMessage());
-        }
-    }
-
-    private void updateClient() {
-        System.out.print("Введите ID клиента для изменения: ");
-        String input = readLine().trim();
-        try {
-            int id = Integer.parseInt(input);
-            Client c = clientService.getClientById(id);
-
-            System.out.println("Текущие данные: " + c.getFullName() + " | " + c.getPhone() + " | " + c.getEmail());
-            System.out.print("Новое ФИО (Enter - оставить): ");
-            String name = readLine().trim();
-            if (!name.isEmpty()) c.setFullName(name);
-
-            System.out.print("Новый телефон (Enter - оставить): ");
-            String phone = readLine().trim();
-            if (!phone.isEmpty()) c.setPhone(phone);
-
-            System.out.print("Новый email (Enter - оставить): ");
-            String email = readLine().trim();
-            if (!email.isEmpty()) c.setEmail(email);
-
-            clientService.updateClient(c);
-            System.out.println("Клиент успешно обновлён!");
-        } catch (NumberFormatException e) {
-            System.err.println("Ошибка: ID должен быть целым числом.");
-        } catch (Exception e) {
-            if (e instanceof InputEndedException) throw (InputEndedException) e;
-            System.err.println("Ошибка: " + friendlyMessage(e));
-        }
-    }
-
-    private void deleteClient() {
-        System.out.print("Введите ID клиента для удаления: ");
-        String input = readLine().trim();
-        try {
-            int id = Integer.parseInt(input);
-            clientService.getClientById(id);
-            System.out.print("Вы уверены? (да/нет): ");
-            String confirm = readLine().trim().toLowerCase();
-            if (confirm.equals("да")) {
-                clientService.deleteClient(id);
-                System.out.println("Клиент удалён!");
-            } else {
-                System.out.println("Удаление отменено.");
-            }
-        } catch (NumberFormatException e) {
-            System.err.println("Ошибка: ID должен быть целым числом.");
-        } catch (Exception e) {
-            if (e instanceof InputEndedException) throw (InputEndedException) e;
-            System.err.println("Ошибка: " + friendlyMessage(e));
-        }
+    private void searchClients() {
+        System.out.print("Введите часть ФИО, телефона или email: ");
+        List<Client> result = clientService.searchClients(readLine().trim());
+        System.out.println("Найдено: " + result.size());
+        for (Client client : result) System.out.println(client);
     }
         // Меню оборудования
     private void equipmentMenu() {
@@ -230,10 +218,7 @@ public class Menu {
             System.out.println("\n--- МЕНЮ: ОБОРУДОВАНИЕ ---");
             System.out.println("1. Добавить оборудование");
             System.out.println("2. Вывести всё оборудование");
-            System.out.println("3. Получить по ID");
-            System.out.println("4. Изменить оборудование");
-            System.out.println("5. Удалить оборудование");
-            System.out.println("6. Сортировка по цене");
+            System.out.println("3. Сортировка по цене");
             System.out.println("0. Назад");
             System.out.print("Выберите действие: ");
 
@@ -242,10 +227,7 @@ public class Menu {
                 switch (choice) {
                     case "1" -> createEquipment();
                     case "2" -> showAllEquipment();
-                    case "3" -> getEquipmentById();
-                    case "4" -> updateEquipment();
-                    case "5" -> deleteEquipment();
-                    case "6" -> sortEquipmentMenu();
+                    case "3" -> sortEquipmentMenu();
                     case "0" -> back = true;
                     default -> System.out.println("Неверный выбор!");
                 }
@@ -259,12 +241,12 @@ public class Menu {
     private void createEquipment() throws BusinessException {
         System.out.print("Название: ");
         String name = readLine().trim();
-        System.out.print("Категория (Электроинструмент/Строительное/Сварочное/Измерительное): ");
-        String category = readLine().trim();
+        String category = selectCategory();
+        if (category == null) return;
         System.out.print("Цена за день (руб.): ");
         BigDecimal price = new BigDecimal(readLine().trim());
-        System.out.print("Доступно (да/нет): ");
-        boolean available = readBoolean(readLine().trim());
+        Boolean available = selectAvailability();
+        if (available == null) return;
 
         Equipment eq = new Equipment(name, category, price, available);
         int id = equipmentService.addEquipment(eq);
@@ -288,76 +270,6 @@ public class Menu {
         System.out.println("Всего единиц: " + list.size());
     }
 
-    private void getEquipmentById() {
-        System.out.print("Введите ID оборудования: ");
-        String input = readLine().trim();
-        try {
-            int id = Integer.parseInt(input);
-            Equipment e = equipmentService.getEquipmentById(id);
-            System.out.println("\nID: " + e.getId());
-            System.out.println("Название: " + e.getName());
-            System.out.println("Категория: " + e.getCategory());
-            System.out.println("Цена за день: " + e.getPricePerDay() + " руб.");
-            System.out.println("Доступно: " + (e.isAvailable() ? "Да" : "Нет"));
-        } catch (NumberFormatException e) {
-            System.err.println("Ошибка: ID должен быть целым числом.");
-        } catch (EntityNotFoundException e) {
-            System.err.println(e.getMessage());
-        }
-    }
-
-    private void updateEquipment() {
-        System.out.print("Введите ID оборудования: ");
-        String input = readLine().trim();
-        try {
-            int id = Integer.parseInt(input);
-            Equipment e = equipmentService.getEquipmentById(id);
-
-            System.out.println("Текущие: " + e.getName() + " | " + e.getCategory() + " | " + e.getPricePerDay());
-            System.out.print("Новое название (Enter - оставить): ");
-            String name = readLine().trim();
-            if (!name.isEmpty()) e.setName(name);
-
-            System.out.print("Новая категория (Enter - оставить): ");
-            String cat = readLine().trim();
-            if (!cat.isEmpty()) e.setCategory(cat);
-
-            System.out.print("Новая цена (Enter - оставить): ");
-            String price = readLine().trim();
-            if (!price.isEmpty()) e.setPricePerDay(new BigDecimal(price));
-
-            System.out.print("Доступно (да/нет/Enter - оставить): ");
-            String avail = readLine().trim();
-            if (!avail.isEmpty()) e.setAvailable(readBoolean(avail));
-
-            equipmentService.updateEquipment(e);
-            System.out.println("Оборудование обновлено!");
-        } catch (NumberFormatException e) {
-            System.err.println("Ошибка: неверный формат числа.");
-        } catch (Exception e) {
-            if (e instanceof InputEndedException) throw (InputEndedException) e;
-            System.err.println("Ошибка: " + friendlyMessage(e));
-        }
-    }
-
-    private void deleteEquipment() {
-        System.out.print("Введите ID оборудования для удаления: ");
-        String input = readLine().trim();
-        try {
-            int id = Integer.parseInt(input);
-            equipmentService.getEquipmentById(id);
-            System.out.print("Вы уверены? (да/нет): ");
-            if (readLine().trim().equalsIgnoreCase("да")) {
-                equipmentService.deleteEquipment(id);
-                System.out.println("Оборудование удалено!");
-            }
-        } catch (NumberFormatException e) {
-            System.err.println("Ошибка: ID должен быть целым числом.");
-        } catch (Exception e) {
-            if (e instanceof InputEndedException) throw (InputEndedException) e;
-            System.err.println("Ошибка: " + friendlyMessage(e));
-        }
-    }
 
     private void sortEquipmentMenu() {
         System.out.println("1. По возрастанию цены");
@@ -409,26 +321,18 @@ public class Menu {
     }
 
     private void createRental() {
-        System.out.println("\nДоступные клиенты:");
-        showAllClients();
-        System.out.print("\nВведите ID клиента: ");
-        String input = readLine().trim();
         try {
-            int clientId = Integer.parseInt(input);
-            clientService.getClientById(clientId);
-
-            System.out.println("\nДоступное оборудование:");
-            List<Equipment> available = equipmentService.filterByAvailability(true);
-            for (Equipment e : available) System.out.println(e);
-            System.out.print("\nВведите ID оборудования: ");
-            int equipmentId = Integer.parseInt(readLine().trim());
+            Client client = selectClient();
+            if (client == null) return;
+            Equipment equipment = selectEquipment(equipmentService.filterByAvailability(true), "Доступное оборудование");
+            if (equipment == null) return;
 
             System.out.print("Дата начала (гггг-мм-дд): ");
             LocalDate start = LocalDate.parse(readLine().trim(), dateFormatter);
             System.out.print("Дата окончания (гггг-мм-дд): ");
             LocalDate end = LocalDate.parse(readLine().trim(), dateFormatter);
 
-            int id = rentalService.createRental(clientId, equipmentId, start, end);
+            int id = rentalService.createRental(client.getId(), equipment.getId(), start, end);
             System.out.println("Заявка создана! ID: " + id);
         } catch (NumberFormatException e) {
             System.err.println("Ошибка: ID должен быть целым числом.");
@@ -456,11 +360,9 @@ public class Menu {
     }
 
     private void getRentalById() {
-        System.out.print("Введите ID заявки: ");
-        String input = readLine().trim();
         try {
-            int id = Integer.parseInt(input);
-            RentalRequest r = rentalService.getRentalById(id);
+            RentalRequest r = selectRental();
+            if (r == null) return;
             System.out.println("\nID: " + r.getId());
             System.out.println("Клиент: " + r.getClientName());
             System.out.println("Оборудование: " + r.getEquipmentName());
@@ -470,17 +372,15 @@ public class Menu {
             System.out.println("Статус: " + r.getStatus().getDisplayName());
         } catch (NumberFormatException e) {
             System.err.println("Ошибка: ID должен быть целым числом.");
-        } catch (EntityNotFoundException e) {
+        } catch (IllegalArgumentException e) {
             System.err.println(e.getMessage());
         }
     }
 
     private void updateRental() {
-        System.out.print("Введите ID заявки: ");
-        String input = readLine().trim();
         try {
-            int id = Integer.parseInt(input);
-            RentalRequest r = rentalService.getRentalById(id);
+            RentalRequest r = selectRental();
+            if (r == null) return;
 
             System.out.println("Текущие даты: " + r.getStartDate() + " - " + r.getEndDate());
             System.out.print("Новая дата начала (Enter - оставить): ");
@@ -505,14 +405,11 @@ public class Menu {
     }
 
     private void deleteRental() {
-        System.out.print("Введите ID заявки для удаления: ");
-        String input = readLine().trim();
         try {
-            int id = Integer.parseInt(input);
-            rentalService.getRentalById(id);
-            System.out.print("Вы уверены? (да/нет): ");
-            if (readLine().trim().equalsIgnoreCase("да")) {
-                rentalService.deleteRental(id);
+            RentalRequest r = selectRental();
+            if (r == null) return;
+            if (confirmAction("удалить заявку №" + r.getId())) {
+                rentalService.deleteRental(r.getId());
                 System.out.println("Заявка удалена!");
             }
         } catch (NumberFormatException e) {
@@ -524,11 +421,9 @@ public class Menu {
     }
 
     private void changeRentalStatus() {
-        System.out.print("Введите ID заявки: ");
-        String input = readLine().trim();
         try {
-            int id = Integer.parseInt(input);
-            rentalService.getRentalById(id);
+            RentalRequest rental = selectRental();
+            if (rental == null) return;
 
             System.out.println("Доступные статусы:");
             for (RentalStatus s : RentalStatus.values()) {
@@ -538,7 +433,7 @@ public class Menu {
             int statusNum = Integer.parseInt(readLine().trim());
             RentalStatus newStatus = statusByNumber(statusNum);
 
-            rentalService.changeStatus(id, newStatus);
+            rentalService.changeStatus(rental.getId(), newStatus);
             System.out.println("Статус изменён на: " + newStatus.getDisplayName());
         } catch (NumberFormatException e) {
             System.err.println("Ошибка: введите число.");
@@ -583,8 +478,8 @@ public class Menu {
             System.out.println("1. Поиск клиентов");
             System.out.println("2. Поиск оборудования");
             System.out.println("3. Общий поиск заявок");
-            System.out.println("4. Заявки по имени клиента");
-            System.out.println("5. Заявки по названию оборудования");
+            System.out.println("4. Заявки выбранного клиента");
+            System.out.println("5. Заявки выбранного оборудования");
             System.out.println("0. Назад");
             System.out.print("Выберите действие: ");
 
@@ -612,10 +507,17 @@ public class Menu {
                         System.out.println("Найдено: " + results.size());
                         for (RentalRequest r : results) System.out.println(r);
                     }
-                    case "4", "5" -> {
-                        System.out.print("Введите часть имени или названия: ");
-                        String q = readLine().trim();
-                        List<RentalRequest> results = choice.equals("4") ? rentalService.searchByClient(q) : rentalService.searchByEquipment(q);
+                    case "4" -> {
+                        Client client = selectClient();
+                        if (client == null) continue;
+                        List<RentalRequest> results = rentalService.searchByClient(client.getFullName());
+                        System.out.println("Найдено: " + results.size());
+                        for (RentalRequest r : results) System.out.println(r);
+                    }
+                    case "5" -> {
+                        Equipment equipment = selectEquipment();
+                        if (equipment == null) continue;
+                        List<RentalRequest> results = rentalService.searchByEquipment(equipment.getName());
                         System.out.println("Найдено: " + results.size());
                         for (RentalRequest r : results) System.out.println(r);
                     }
@@ -658,8 +560,8 @@ public class Menu {
                         for (Equipment e : list) System.out.println(e);
                     }
                     case "2" -> {
-                        System.out.print("Показать доступное (да) или занятое (нет)? ");
-                        boolean avail = readBoolean(readLine().trim());
+                        Boolean avail = selectAvailability();
+                        if (avail == null) continue;
                         List<Equipment> list = equipmentService.filterByAvailability(avail);
                         System.out.println("Найдено: " + list.size());
                         for (Equipment e : list) System.out.println(e);
@@ -733,9 +635,6 @@ public class Menu {
             System.out.println("1. Экспорт клиентов в Excel");
             System.out.println("2. Экспорт оборудования в Excel");
             System.out.println("3. Экспорт заявок в Excel");
-            System.out.println("4. Экспорт клиентов в CSV");
-            System.out.println("5. Экспорт оборудования в CSV");
-            System.out.println("6. Экспорт заявок в CSV");
             System.out.println("0. Назад");
             System.out.print("Выберите действие: ");
 
@@ -778,44 +677,6 @@ public class Menu {
                             });
                         }
                         DataExporter.exportToExcel("exports/rentals.xlsx", data,
-                                new String[]{"ID", "Клиент", "Оборудование", "Начало", "Окончание", "Стоимость", "Статус"});
-                    }
-                    case "4" -> {
-                        List<Client> clients = clientService.getAllClients();
-                        List<String[]> data = new ArrayList<>();
-                        for (Client c : clients) {
-                            data.add(new String[]{
-                                    String.valueOf(c.getId()), c.getFullName(), c.getPhone(), c.getEmail()
-                            });
-                        }
-                        DataExporter.exportToCSV("exports/clients.csv", data,
-                                new String[]{"ID", "ФИО", "Телефон", "Email"});
-                    }
-                    case "5" -> {
-                        List<Equipment> list = equipmentService.getAllEquipment();
-                        List<String[]> data = new ArrayList<>();
-                        for (Equipment e : list) {
-                            data.add(new String[]{
-                                    String.valueOf(e.getId()), e.getName(), e.getCategory(),
-                                    e.getPricePerDay().toString(), e.isAvailable() ? "Да" : "Нет"
-                            });
-                        }
-                        DataExporter.exportToCSV("exports/equipment.csv", data,
-                                new String[]{"ID", "Название", "Категория", "Цена/день", "Доступно"});
-                    }
-                    case "6" -> {
-                        List<RentalRequest> list = rentalService.getAllRentals();
-                        List<String[]> data = new ArrayList<>();
-                        for (RentalRequest r : list) {
-                            data.add(new String[]{
-                                    String.valueOf(r.getId()),
-                                    r.getClientName() != null ? r.getClientName() : String.valueOf(r.getClientId()),
-                                    r.getEquipmentName() != null ? r.getEquipmentName() : String.valueOf(r.getEquipmentId()),
-                                    r.getStartDate().toString(), r.getEndDate().toString(),
-                                    r.getTotalCost().toString(), r.getStatus().getDisplayName()
-                            });
-                        }
-                        DataExporter.exportToCSV("exports/rentals.csv", data,
                                 new String[]{"ID", "Клиент", "Оборудование", "Начало", "Окончание", "Стоимость", "Статус"});
                     }
                     case "0" -> back = true;

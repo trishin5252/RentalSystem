@@ -8,16 +8,6 @@ public class ClientService {
     private final Repository<Client,Integer> repository = new ClientRepository();
     public int addClient(Client c) throws BusinessException { validate(c); return repository.save(c).getId(); }
     public List<Client> getAllClients() { return repository.findAll(); }
-    public Client getClientById(int id) throws EntityNotFoundException { return repository.findById(id); }
-    public boolean updateClient(Client c) throws BusinessException, EntityNotFoundException {
-        validate(c); repository.update(c); return true;
-    }
-    public boolean deleteClient(int id) throws BusinessException, EntityNotFoundException {
-        repository.findById(id);
-        if (new RentalRequestRepository().findAll().stream().anyMatch(r -> r.getClientId() == id))
-            throw new BusinessException("Нельзя удалить клиента, пока с ним связаны заявки");
-        repository.delete(id); return true;
-    }
     public List<Client> searchClients(String query) {
         String q = query.trim().toLowerCase(Locale.ROOT);
         return repository.findAll().stream().filter(c -> c.getFullName().toLowerCase(Locale.ROOT).contains(q)

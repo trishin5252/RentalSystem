@@ -29,9 +29,6 @@ CREATE TABLE rental_requests (
     total_cost NUMERIC(12,2) NOT NULL CHECK (total_cost > 0),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
--- По принятому правилу один предмет закреплён за одной незакрытой заявкой.
-CREATE UNIQUE INDEX one_open_rental_per_equipment ON rental_requests(equipment_id)
-    WHERE status IN ('CREATED','ACTIVE','OVERDUE');
 CREATE INDEX rentals_client ON rental_requests(client_id);
 CREATE INDEX rentals_start_date ON rental_requests(start_date);
 

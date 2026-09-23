@@ -20,7 +20,7 @@ public class RentalRequestService {
         return DatabaseConnection.transaction(c -> {
             new ClientRepository(c).findById(clientId);
             EquipmentRepository equipment = new EquipmentRepository(c);
-            Equipment eq = equipment.findForUpdate(equipmentId);
+            Equipment eq = equipment.findById(equipmentId);
             RentalRequestRepository rentals = new RentalRequestRepository(c);
             if (!eq.isAvailable() || rentals.hasOpenRental(equipmentId))
                 throw new BusinessException("Оборудование недоступно или уже занято заявкой");
@@ -49,12 +49,12 @@ public class RentalRequestService {
         validateDates(requested.getStartDate(),requested.getEndDate());
         return DatabaseConnection.transaction(c -> {
             RentalRequestRepository rentals = new RentalRequestRepository(c);
-            RentalRequest old = rentals.findForUpdate(requested.getId());
+            RentalRequest old = rentals.findById(requested.getId());
             if (old.getStatus() != RentalStatus.CREATED) throw new BusinessException("Редактировать даты можно только у созданной заявки");
             if (old.getClientId() != requested.getClientId() || old.getEquipmentId() != requested.getEquipmentId())
                 throw new BusinessException("Клиента и оборудование изменить нельзя. Отмените заявку и создайте новую");
             if (requested.getStatus() != old.getStatus()) throw new BusinessException("Для изменения статуса используйте отдельную операцию");
-            Equipment eq = new EquipmentRepository(c).findForUpdate(old.getEquipmentId());
+            Equipment eq = new EquipmentRepository(c).findById(old.getEquipmentId());
             requested.setTotalCost(cost(eq,requested.getStartDate(),requested.getEndDate()));
             rentals.update(requested);
             return true;
@@ -63,11 +63,11 @@ public class RentalRequestService {
     public boolean deleteRental(int id) throws BusinessException,EntityNotFoundException {
         return DatabaseConnection.transaction(c -> {
             RentalRequestRepository rentals = new RentalRequestRepository(c);
-            RentalRequest r = rentals.findForUpdate(id);
+            RentalRequest r = rentals.findById(id);
             if (r.getStatus() == RentalStatus.ACTIVE || r.getStatus() == RentalStatus.OVERDUE)
                 throw new BusinessException("Сначала оформите возврат оборудования (статус Завершена)");
             EquipmentRepository equipment = new EquipmentRepository(c);
-            Equipment eq = equipment.findForUpdate(r.getEquipmentId());
+            Equipment eq = equipment.findById(r.getEquipmentId());
             rentals.delete(id);
             if (r.getStatus().reservesEquipment()) { eq.setAvailable(true); equipment.update(eq); }
             return true;
@@ -76,7 +76,7 @@ public class RentalRequestService {
     public boolean changeStatus(int id,RentalStatus next) throws BusinessException,EntityNotFoundException {
         return DatabaseConnection.transaction(c -> {
             RentalRequestRepository rentals = new RentalRequestRepository(c);
-            RentalRequest r = rentals.findForUpdate(id);
+            RentalRequest r = rentals.findById(id);
             if (!r.getStatus().canTransitionTo(next)) throw new BusinessException("Запрещён переход: " + r.getStatus() + " -> " + next);
             LocalDate today = LocalDate.now(clock);
             if (next == RentalStatus.ACTIVE && r.getStartDate().isAfter(today))
@@ -84,7 +84,7 @@ public class RentalRequestService {
             if (next == RentalStatus.OVERDUE && !r.getEndDate().isBefore(today))
                 throw new BusinessException("Срок аренды ещё не просрочен");
             EquipmentRepository equipment = new EquipmentRepository(c);
-            Equipment eq = equipment.findForUpdate(r.getEquipmentId());
+            Equipment eq = equipment.findById(r.getEquipmentId());
             r.setStatus(next);
             rentals.update(r);
             eq.setAvailable(!next.reservesEquipment());

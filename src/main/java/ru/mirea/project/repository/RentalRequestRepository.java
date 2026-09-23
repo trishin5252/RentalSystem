@@ -9,10 +9,8 @@ public class RentalRequestRepository extends JdbcRepository<RentalRequest> imple
             + "FROM rental_requests r JOIN clients c ON c.id=r.client_id JOIN equipment e ON e.id=r.equipment_id ";
     public RentalRequestRepository() { }
     public RentalRequestRepository(Connection c) { super(c); }
-    public RentalRequest findById(Integer id) throws EntityNotFoundException { return find(id,false); }
-    public RentalRequest findForUpdate(int id) throws EntityNotFoundException { return find(id,true); }
-    private RentalRequest find(int id,boolean lock) throws EntityNotFoundException {
-        List<RentalRequest> rows = query(SELECT + "WHERE r.id=?" + (lock ? " FOR UPDATE OF r" : ""),id);
+    public RentalRequest findById(Integer id) throws EntityNotFoundException {
+        List<RentalRequest> rows = query(SELECT + "WHERE r.id=?",id);
         if (rows.isEmpty()) throw new EntityNotFoundException("Заявка с ID " + id + " не найдена");
         return rows.get(0);
     }
